@@ -64,8 +64,9 @@ const MPV_BASE = [
   '--demuxer-lavf-probescore=10',
   '--demuxer-max-bytes=512KiB',
   '--demuxer-max-back-bytes=50KiB',
+  '--video-latency-hacks=yes',
   '--loop-file=inf',
-  '--rtsp-transport=tcp',
+  '--rtsp-transport=udp',
 ];
 
 let gridProcs = [];
