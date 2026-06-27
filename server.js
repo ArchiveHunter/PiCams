@@ -56,7 +56,14 @@ const MPV_BASE = [
   '--cursor-autohide=always',
   '--hwdec=v4l2m2m',
   '--vo=gpu',
-  '--profile=low-latency',
+  // Explicit low-latency — don't rely on profile alone
+  '--no-cache',
+  '--untimed',
+  '--video-sync=desync',
+  '--demuxer-lavf-analyzeduration=0.01',
+  '--demuxer-lavf-probescore=10',
+  '--demuxer-max-bytes=512KiB',
+  '--demuxer-max-back-bytes=50KiB',
   '--loop-file=inf',
   '--rtsp-transport=tcp',
 ];
