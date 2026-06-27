@@ -1,0 +1,14 @@
+[Unit]
+Description=go2rtc RTSP bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/picams
+ExecStart=/usr/local/bin/go2rtc -config /home/pi/picams/go2rtc.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

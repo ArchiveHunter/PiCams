@@ -1,0 +1,4 @@
+node_modules/
+.env
+go2rtc.yaml
+npm-debug.log*

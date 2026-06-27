@@ -1,0 +1,30 @@
+api:
+  listen: ":1984"
+  origin: "*"
+
+# RTSP streams from UniFi Protect.
+# Get your aliases from the Protect bootstrap API:
+#   curl -sk -b "TOKEN=<api-key>" https://<udm-ip>/proxy/protect/api/bootstrap \
+#     | python3 -m json.tool | grep -A2 '"rtspAlias"'
+# Stream URL format: rtsp://<udm-ip>:7447/<alias>
+
+streams:
+  backgarden_lo:
+    - rtsp://192.168.1.1:7447/YOUR_BACKGARDEN_LO_ALIAS
+  backgarden_hd:
+    - rtsp://192.168.1.1:7447/YOUR_BACKGARDEN_HD_ALIAS
+
+  chase_lo:
+    - rtsp://192.168.1.1:7447/YOUR_CHASE_LO_ALIAS
+  chase_hd:
+    - rtsp://192.168.1.1:7447/YOUR_CHASE_HD_ALIAS
+
+  driveway_lo:
+    - rtsp://192.168.1.1:7447/YOUR_DRIVEWAY_LO_ALIAS
+  driveway_hd:
+    - rtsp://192.168.1.1:7447/YOUR_DRIVEWAY_HD_ALIAS
+
+  side_lo:
+    - rtsp://192.168.1.1:7447/YOUR_SIDE_LO_ALIAS
+  side_hd:
+    - rtsp://192.168.1.1:7447/YOUR_SIDE_HD_ALIAS

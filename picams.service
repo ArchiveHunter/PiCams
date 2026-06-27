@@ -1,0 +1,16 @@
+[Unit]
+Description=PiCams camera display and control
+After=graphical.target go2rtc.service
+Requires=go2rtc.service
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/picams
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+
+[Install]
+WantedBy=graphical.target
