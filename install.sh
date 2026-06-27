@@ -16,7 +16,7 @@ sudo apt-get upgrade -y -qq
 
 # ── 2. Dependencies ───────────────────────────────────────────────────────────
 echo "[2/8] Installing dependencies…"
-sudo apt-get install -y -qq mpv x11-xserver-utils curl wget git xdpyinfo
+sudo apt-get install -y -qq mpv x11-xserver-utils x11-utils curl wget git
 
 # ── 3. Switch to X11 (Trixie defaults to Wayland) ────────────────────────────
 echo "[3/8] Switching to X11…"
