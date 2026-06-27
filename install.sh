@@ -74,12 +74,13 @@ sudo cp "$PICAMS_DIR/picams.service"  /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable go2rtc picams
 
-# ── LXDE autostart — disable screensaver, remove any old Chromium kiosk ───────
-AUTOSTART_DIR="/home/pi/.config/lxsession/LXDE-pi"
+# ── Session autostart — Pi OS Trixie uses rpd-x session, override system autostart ──
+# System /etc/xdg/lxsession/rpd-x/autostart launches lxpanel-pi by default.
+# User file overrides it entirely — omit lxpanel and xscreensaver.
+AUTOSTART_DIR="/home/pi/.config/lxsession/rpd-x"
 mkdir -p "$AUTOSTART_DIR"
 cat > "$AUTOSTART_DIR/autostart" << 'EOF'
-@lxpanel --profile LXDE-pi
-@pcmanfm --desktop --profile LXDE-pi
+@pcmanfm-pi
 @xset s off
 @xset -dpms
 @xset s noblank
