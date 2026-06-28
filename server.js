@@ -24,11 +24,21 @@ const DISPLAY_W   = parseInt(process.env.DISPLAY_W  || 1920);
 const DISPLAY_H   = parseInt(process.env.DISPLAY_H  || 1080);
 const PI_USER     = process.env.PI_USER             || 'pi';
 
+const UDM_RTSP = process.env.UDM_RTSP || 'rtsp://192.168.10.1:7447';
+
 const CAMERAS = [
-  { id: 'back_garden', name: 'Back Garden', streamLo: 'backgarden_lo', streamHd: 'backgarden_hd' },
-  { id: 'chase',       name: 'Chase',       streamLo: 'chase_lo',      streamHd: 'chase_hd'      },
-  { id: 'driveway',    name: 'Driveway',    streamLo: 'driveway_lo',   streamHd: 'driveway_hd'   },
-  { id: 'side',        name: 'Side',        streamLo: 'side_lo',       streamHd: 'side_hd'       },
+  { id: 'back_garden', name: 'Back Garden',
+    rtspLo: UDM_RTSP+'/2o91is44Gw6pe1MG', rtspHd: UDM_RTSP+'/t3jkH6w4RcmD6Ipe',
+    streamLo: 'backgarden_lo', streamHd: 'backgarden_hd' },
+  { id: 'chase',       name: 'Chase',
+    rtspLo: UDM_RTSP+'/i3GF1SNWfEVTFdXh', rtspHd: UDM_RTSP+'/8PzJEJt7Sz0ufNao',
+    streamLo: 'chase_lo',      streamHd: 'chase_hd'      },
+  { id: 'driveway',    name: 'Driveway',
+    rtspLo: UDM_RTSP+'/NiU7reprofVhkOvK', rtspHd: UDM_RTSP+'/6OMHQS3OwtsxJEgk',
+    streamLo: 'driveway_lo',   streamHd: 'driveway_hd'   },
+  { id: 'side',        name: 'Side',
+    rtspLo: UDM_RTSP+'/CaaLSequpuITkgyl', rtspHd: UDM_RTSP+'/y5EAId3r7PvfidIu',
+    streamLo: 'side_lo',       streamHd: 'side_hd'       },
 ];
 
 // 2×2 grid positions
@@ -64,8 +74,10 @@ const MPV_BASE = [
   '--demuxer-lavf-probescore=10',
   '--demuxer-max-bytes=512KiB',
   '--demuxer-max-back-bytes=50KiB',
+  '--demuxer-readahead-secs=0',
+  '--demuxer-lavf-o-add=fflags=+nobuffer',
+  '--cache-pause=no',
   '--video-latency-hacks=yes',
-  '--loop-file=inf',
   '--rtsp-transport=tcp',
 ];
 
@@ -89,7 +101,7 @@ function spawnGridCell(cam, i) {
   const { x, y } = GRID_POSITIONS[i];
   const proc = spawnMpv([
     `--geometry=${W2}x${H2}+${x}+${y}`,
-    `${GO2RTC_RTSP}/${cam.streamLo}`,
+    cam.rtspLo,
   ]);
   proc.on('exit', code => {
     // Self-heal: respawn this cell if we're still in grid mode
@@ -113,7 +125,7 @@ function startFullscreen(cam) {
   fsProc = spawnMpv([
     '--fullscreen',
     '--ontop',
-    `${GO2RTC_RTSP}/${cam.streamHd}`,
+    cam.rtspHd,
   ]);
   fsProc.on('exit', () => { fsProc = null; });
   console.log(`[mpv] Fullscreen: ${cam.name}`);
