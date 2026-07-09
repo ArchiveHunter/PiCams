@@ -81,6 +81,53 @@ const MPV_BASE = [
   '--rtsp-transport=tcp',
 ];
 
+// ── Stream watchdog ────────────────────────────────────────────────────────────
+// mpv can stall on a dead RTSP connection without exiting (e.g. UDM Pro update).
+// Poll CPU ticks every 30s; if zero for 2 consecutive checks (~60s), force-kill
+// so the self-heal in spawnGridCell can respawn cleanly.
+
+const WATCHDOG_INTERVAL_MS  = 30_000;
+const WATCHDOG_STALL_CHECKS = 2;
+const cpuTicks   = [null, null, null, null];
+const stalledCnt = [0, 0, 0, 0];
+let watchdogTimer = null;
+
+function getMpvCpuTicks(pid) {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ');
+    return parseInt(stat[13]) + parseInt(stat[14]); // utime + stime
+  } catch { return null; }
+}
+
+function startWatchdog() {
+  watchdogTimer = setInterval(() => {
+    if (state.mode !== 'grid') return;
+    gridProcs.forEach((proc, i) => {
+      if (!proc || proc.exitCode !== null) return;
+      const ticks = getMpvCpuTicks(proc.pid);
+      if (ticks === null) return;
+      const prev  = cpuTicks[i];
+      cpuTicks[i] = ticks;
+      if (prev === null) return; // no baseline yet
+      if (ticks === prev) {
+        stalledCnt[i]++;
+        if (stalledCnt[i] >= WATCHDOG_STALL_CHECKS) {
+          console.log(`[watchdog] ${CAMERAS[i].name} frozen, respawning`);
+          stalledCnt[i] = 0;
+          cpuTicks[i]   = null;
+          proc.kill('SIGTERM');
+        }
+      } else {
+        stalledCnt[i] = 0;
+      }
+    });
+  }, WATCHDOG_INTERVAL_MS);
+}
+
+function stopWatchdog() {
+  if (watchdogTimer) { clearInterval(watchdogTimer); watchdogTimer = null; }
+}
+
 let gridProcs = [];
 let fsProc    = null;
 let state     = { mode: 'grid', activeCamera: null };
@@ -98,6 +145,8 @@ function spawnMpv(extraArgs) {
 }
 
 function spawnGridCell(cam, i) {
+  cpuTicks[i]   = null;
+  stalledCnt[i] = 0;
   const { x, y } = GRID_POSITIONS[i];
   const proc = spawnMpv([
     `--geometry=${W2}x${H2}+${x}+${y}`,
@@ -115,9 +164,23 @@ function spawnGridCell(cam, i) {
   return proc;
 }
 
-function spawnGrid() {
+async function prewarmStreams() {
+  console.log('[go2rtc] Pre-warming streams…');
+  await Promise.all(CAMERAS.map(async cam => {
+    try {
+      await fetch(`${GO2RTC_API}/api/frame.jpeg?src=${cam.streamLo}`, { signal: AbortSignal.timeout(8000) });
+      console.log(`[go2rtc] ${cam.name} ready`);
+    } catch {
+      console.warn(`[go2rtc] ${cam.name} prewarm timed out, continuing anyway`);
+    }
+  }));
+}
+
+async function spawnGrid() {
+  await prewarmStreams();
   gridProcs = CAMERAS.map((cam, i) => spawnGridCell(cam, i));
   console.log('[mpv] Grid started');
+  startWatchdog();
 }
 
 function startFullscreen(cam) {
@@ -136,6 +199,7 @@ function stopFullscreen() {
 }
 
 function killGrid() {
+  stopWatchdog();
   gridProcs.forEach(p => p && p.kill('SIGTERM'));
   gridProcs = [];
 }
@@ -219,6 +283,7 @@ app.get('/', (_req, res) => res.redirect('/control.html'));
 
 function shutdown() {
   console.log('[server] Shutting down');
+  stopWatchdog();
   stopFullscreen();
   killGrid();
   process.exit(0);
@@ -231,5 +296,5 @@ process.on('SIGINT',  shutdown);
 server.listen(PORT, async () => {
   console.log(`PiCams v2 running on http://0.0.0.0:${PORT}`);
   const ready = await waitForDisplay();
-  if (ready) spawnGrid();
+  if (ready) await spawnGrid();
 });
