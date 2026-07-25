@@ -88,6 +88,7 @@ const MPV_BASE = [
 
 const WATCHDOG_INTERVAL_MS  = 30_000;
 const WATCHDOG_STALL_CHECKS = 2;
+const DRIFT_RESET_INTERVAL_MS  = 4 * 60 * 60 * 1000; // 4 hours
 const cpuTicks   = [null, null, null, null];
 const stalledCnt = [0, 0, 0, 0];
 let watchdogTimer = null;
@@ -152,8 +153,14 @@ function spawnGridCell(cam, i) {
     `--geometry=${W2}x${H2}+${x}+${y}`,
     cam.rtspLo,
   ]);
+  const driftTimer = setTimeout(() => {
+    if (state.mode === 'grid' && proc.exitCode === null) {
+      console.log(`[drift] ${cam.name} periodic reset`);
+      proc.kill('SIGTERM');
+    }
+  }, DRIFT_RESET_INTERVAL_MS + i * 15 * 60 * 1000);
   proc.on('exit', code => {
-    // Self-heal: respawn this cell if we're still in grid mode
+    clearTimeout(driftTimer);
     if (state.mode === 'grid') {
       console.log(`[mpv] ${cam.name} exited (${code}), respawning in 2s`);
       setTimeout(() => {
