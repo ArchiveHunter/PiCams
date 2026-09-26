@@ -24,32 +24,35 @@ const DISPLAY_W   = parseInt(process.env.DISPLAY_W  || 1920);
 const DISPLAY_H   = parseInt(process.env.DISPLAY_H  || 1080);
 const PI_USER     = process.env.PI_USER             || 'pi';
 
-const UDM_RTSP = process.env.UDM_RTSP || 'rtsp://192.168.10.1:7447';
+// Load cameras from cameras.json
+const camPath = path.join(__dirname, 'cameras.json');
+if (!fs.existsSync(camPath)) {
+  console.error('[config] cameras.json not found — copy cameras.example.json and configure it');
+  process.exit(1);
+}
+const CAMERAS = JSON.parse(fs.readFileSync(camPath, 'utf8'));
 
-const CAMERAS = [
-  { id: 'back_garden', name: 'Back Garden',
-    rtspLo: UDM_RTSP+'/2o91is44Gw6pe1MG', rtspHd: UDM_RTSP+'/t3jkH6w4RcmD6Ipe',
-    streamLo: 'backgarden_lo', streamHd: 'backgarden_hd' },
-  { id: 'chase',       name: 'Chase',
-    rtspLo: UDM_RTSP+'/i3GF1SNWfEVTFdXh', rtspHd: UDM_RTSP+'/8PzJEJt7Sz0ufNao',
-    streamLo: 'chase_lo',      streamHd: 'chase_hd'      },
-  { id: 'driveway',    name: 'Driveway',
-    rtspLo: UDM_RTSP+'/NiU7reprofVhkOvK', rtspHd: UDM_RTSP+'/6OMHQS3OwtsxJEgk',
-    streamLo: 'driveway_lo',   streamHd: 'driveway_hd'   },
-  { id: 'side',        name: 'Side',
-    rtspLo: UDM_RTSP+'/CaaLSequpuITkgyl', rtspHd: UDM_RTSP+'/y5EAId3r7PvfidIu',
-    streamLo: 'side_lo',       streamHd: 'side_hd'       },
-];
+// Adaptive grid layout
+function gridDimensions(n) {
+  if (n <= 1)  return { cols: 1, rows: 1 };
+  if (n <= 2)  return { cols: 2, rows: 1 };
+  if (n <= 4)  return { cols: 2, rows: 2 };
+  if (n <= 6)  return { cols: 3, rows: 2 };
+  if (n <= 8)  return { cols: 4, rows: 2 };
+  if (n <= 9)  return { cols: 3, rows: 3 };
+  if (n <= 12) return { cols: 4, rows: 3 };
+  if (n <= 16) return { cols: 4, rows: 4 };
+  const cols = Math.ceil(Math.sqrt(n * (DISPLAY_W / DISPLAY_H)));
+  return { cols, rows: Math.ceil(n / cols) };
+}
 
-// 2×2 grid positions
-const W2 = Math.floor(DISPLAY_W / 2);
-const H2 = Math.floor(DISPLAY_H / 2);
-const GRID_POSITIONS = [
-  { x: 0,  y: 0  },
-  { x: W2, y: 0  },
-  { x: 0,  y: H2 },
-  { x: W2, y: H2 },
-];
+const { cols: GRID_COLS, rows: GRID_ROWS } = gridDimensions(CAMERAS.length);
+const CELL_W = Math.floor(DISPLAY_W / GRID_COLS);
+const CELL_H = Math.floor(DISPLAY_H / GRID_ROWS);
+const GRID_POSITIONS = CAMERAS.map((_, i) => ({
+  x: (i % GRID_COLS) * CELL_W,
+  y: Math.floor(i / GRID_COLS) * CELL_H,
+}));
 
 const MPV_ENV = {
   ...process.env,
@@ -86,11 +89,12 @@ const MPV_BASE = [
 // Poll CPU ticks every 30s; if zero for 2 consecutive checks (~60s), force-kill
 // so the self-heal in spawnGridCell can respawn cleanly.
 
-const WATCHDOG_INTERVAL_MS  = 30_000;
-const WATCHDOG_STALL_CHECKS = 2;
-const DRIFT_RESET_INTERVAL_MS  = 4 * 60 * 60 * 1000; // 4 hours
-const cpuTicks   = [null, null, null, null];
-const stalledCnt = [0, 0, 0, 0];
+const WATCHDOG_INTERVAL_MS   = 30_000;
+const WATCHDOG_STALL_CHECKS  = 2;
+const DRIFT_RESET_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+const cpuTicks   = CAMERAS.map(() => null);
+const stalledCnt = CAMERAS.map(() => 0);
 let watchdogTimer = null;
 
 function getMpvCpuTicks(pid) {
@@ -150,8 +154,8 @@ function spawnGridCell(cam, i) {
   stalledCnt[i] = 0;
   const { x, y } = GRID_POSITIONS[i];
   const proc = spawnMpv([
-    `--geometry=${W2}x${H2}+${x}+${y}`,
-    cam.rtspLo,
+    `--geometry=${CELL_W}x${CELL_H}+${x}+${y}`,
+    `${GO2RTC_RTSP}/${cam.streamLo}`,
   ]);
   const driftTimer = setTimeout(() => {
     if (state.mode === 'grid' && proc.exitCode === null) {
@@ -186,7 +190,7 @@ async function prewarmStreams() {
 async function spawnGrid() {
   await prewarmStreams();
   gridProcs = CAMERAS.map((cam, i) => spawnGridCell(cam, i));
-  console.log('[mpv] Grid started');
+  console.log(`[mpv] Grid started (${GRID_COLS}×${GRID_ROWS})`);
   startWatchdog();
 }
 
@@ -195,7 +199,7 @@ function startFullscreen(cam) {
   fsProc = spawnMpv([
     '--fullscreen',
     '--ontop',
-    cam.rtspHd,
+    `${GO2RTC_RTSP}/${cam.streamHd}`,
   ]);
   fsProc.on('exit', () => { fsProc = null; });
   console.log(`[mpv] Fullscreen: ${cam.name}`);

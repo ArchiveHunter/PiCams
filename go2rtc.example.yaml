@@ -2,11 +2,18 @@ api:
   listen: ":1984"
   origin: "*"
 
+rtsp:
+  listen: ":8554"
+
 # RTSP streams from UniFi Protect.
-# Get your aliases from the Protect bootstrap API:
+# Stream names here must match streamLo/streamHd values in cameras.json.
+#
+# Get your RTSP aliases from the Protect bootstrap API:
 #   curl -sk -b "TOKEN=<api-key>" https://<udm-ip>/proxy/protect/api/bootstrap \
 #     | python3 -m json.tool | grep -A2 '"rtspAlias"'
 # Stream URL format: rtsp://<udm-ip>:7447/<alias>
+#
+# Each camera needs a lo (low-res, for the grid) and hd (high-res, for fullscreen).
 
 streams:
   backgarden_lo:
@@ -28,3 +35,9 @@ streams:
     - rtsp://192.168.1.1:7447/YOUR_SIDE_LO_ALIAS
   side_hd:
     - rtsp://192.168.1.1:7447/YOUR_SIDE_HD_ALIAS
+
+  # Add more cameras by following the same pattern:
+  # frontdoor_lo:
+  #   - rtsp://192.168.1.1:7447/YOUR_FRONTDOOR_LO_ALIAS
+  # frontdoor_hd:
+  #   - rtsp://192.168.1.1:7447/YOUR_FRONTDOOR_HD_ALIAS

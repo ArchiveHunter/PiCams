@@ -1,4 +1,5 @@
 node_modules/
 .env
 go2rtc.yaml
+cameras.json
 npm-debug.log*

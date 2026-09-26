@@ -89,20 +89,50 @@ PI_USER=pi
 
 The default is 1920×1080. Change `DISPLAY_W`/`DISPLAY_H` if your TV is a different resolution (e.g. 1360×768).
 
-### Customising camera names
+### 3. `cameras.json` — camera list
 
-Camera names and stream IDs are defined at the top of `server.js`:
+Copy the example if you haven't already:
 
-```js
-const CAMERAS = [
-  { id: 'back_garden', name: 'Back Garden', streamLo: 'backgarden_lo', streamHd: 'backgarden_hd' },
-  { id: 'chase',       name: 'Chase',       streamLo: 'chase_lo',      streamHd: 'chase_hd'      },
-  { id: 'driveway',    name: 'Driveway',    streamLo: 'driveway_lo',   streamHd: 'driveway_hd'   },
-  { id: 'side',        name: 'Side',        streamLo: 'side_lo',       streamHd: 'side_hd'       },
-];
+```bash
+cp /home/pi/picams/cameras.example.json /home/pi/picams/cameras.json
 ```
 
-The `streamLo`/`streamHd` values must match the stream names in `go2rtc.yaml`.
+Edit `cameras.json` to match your cameras. Add or remove entries freely — the grid adapts automatically to however many cameras you have.
+
+```json
+[
+  { "id": "back_garden", "name": "Back Garden", "streamLo": "backgarden_lo", "streamHd": "backgarden_hd" },
+  { "id": "chase",       "name": "Chase",       "streamLo": "chase_lo",      "streamHd": "chase_hd"      },
+  { "id": "driveway",    "name": "Driveway",    "streamLo": "driveway_lo",   "streamHd": "driveway_hd"   },
+  { "id": "side",        "name": "Side",        "streamLo": "side_lo",       "streamHd": "side_hd"       }
+]
+```
+
+| Field | Description |
+|---|---|
+| `id` | Unique identifier (no spaces) — used internally |
+| `name` | Display name shown in the phone UI |
+| `streamLo` | go2rtc stream name for the low-res feed (used in the grid) |
+| `streamHd` | go2rtc stream name for the high-res feed (used for fullscreen) |
+
+The `streamLo`/`streamHd` values must match stream names defined in `go2rtc.yaml`.
+
+#### Adaptive grid layout
+
+The grid automatically picks the best layout for your camera count:
+
+| Cameras | Grid |
+|---|---|
+| 1 | 1×1 |
+| 2 | 2×1 |
+| 3–4 | 2×2 |
+| 5–6 | 3×2 |
+| 7–8 | 4×2 |
+| 9 | 3×3 |
+| 10–12 | 4×3 |
+| 13–16 | 4×4 |
+
+Any camera can still be popped to fullscreen from the phone UI regardless of grid size.
 
 ---
 
@@ -126,19 +156,18 @@ http://<pi-ip>:8080/
 UniFi Protect NVR
       │ RTSP (TCP, port 7447)
       ▼
-   go2rtc          ← re-streams via internal RTSP on port 8554
-      │             ← also serves JPEG snapshots on port 1984 (for prewarm)
-      ▼
-  mpv × 4          ← 2×2 grid, hardware decoded (v4l2m2m), one process per camera
+   go2rtc          ← RTSP relay on port 8554, JPEG snapshots on port 1984
       │
-  mpv × 1          ← fullscreen overlay (spawned on demand, --ontop)
+      ├── mpv × N  ← adaptive grid, hardware decoded (v4l2m2m), one process per camera
+      │
+      └── mpv × 1  ← fullscreen overlay (spawned on demand, --ontop)
       
   server.js        ← Express + WebSocket, manages mpv processes
       │
   control.html     ← Phone UI (WebSocket client)
 ```
 
-**Why go2rtc in the middle?** go2rtc pre-warms the RTSP connections before mpv spawns, which prevents a black-screen delay on startup. mpv connects to go2rtc's local RTSP relay rather than hitting the NVR directly.
+**Why go2rtc in the middle?** go2rtc pre-warms the RTSP connections before mpv spawns (preventing black-screen delay on startup) and serves JPEG snapshots for the phone UI thumbnails. mpv connects to go2rtc's local RTSP relay on loopback, so the extra hop adds <1ms.
 
 **Why native mpv instead of a browser?** A browser compositor adds 300–800ms of latency on top of whatever the stream is doing. mpv with `v4l2m2m` hardware decode and the flags in `server.js` gets latency down to ~1 second end-to-end.
 

@@ -66,6 +66,7 @@ npm install --silent
 # Copy example configs if not already configured
 [ -f "$PICAMS_DIR/.env" ]          || cp "$PICAMS_DIR/.env.example"          "$PICAMS_DIR/.env"
 [ -f "$PICAMS_DIR/go2rtc.yaml" ]   || cp "$PICAMS_DIR/go2rtc.example.yaml"   "$PICAMS_DIR/go2rtc.yaml"
+[ -f "$PICAMS_DIR/cameras.json" ]  || cp "$PICAMS_DIR/cameras.example.json"  "$PICAMS_DIR/cameras.json"
 
 # ── 8. Systemd services ───────────────────────────────────────────────────────
 echo "[8/8] Installing systemd services…"

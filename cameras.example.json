@@ -1,0 +1,6 @@
+[
+  { "id": "back_garden", "name": "Back Garden", "streamLo": "backgarden_lo", "streamHd": "backgarden_hd" },
+  { "id": "chase",       "name": "Chase",       "streamLo": "chase_lo",      "streamHd": "chase_hd"      },
+  { "id": "driveway",    "name": "Driveway",    "streamLo": "driveway_lo",   "streamHd": "driveway_hd"   },
+  { "id": "side",        "name": "Side",        "streamLo": "side_lo",       "streamHd": "side_hd"       }
+]
