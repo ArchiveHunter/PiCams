@@ -120,6 +120,7 @@ function startWatchdog() {
           console.log(`[watchdog] ${CAMERAS[i].name} frozen, respawning`);
           stalledCnt[i] = 0;
           cpuTicks[i]   = null;
+          proc.exitReason = 'frozen';
           proc.kill('SIGTERM');
         }
       } else {
@@ -136,6 +137,31 @@ function stopWatchdog() {
 let gridProcs = [];
 let fsProc    = null;
 let state     = { mode: 'grid', activeCamera: null };
+
+// ── mpv logs ───────────────────────────────────────────────────────────────────
+// Each grid mpv logs to logs/<id>.log (truncated on every spawn). When it exits
+// for any reason other than a drift reset or deliberate stop, the log is kept as
+// logs/<id>-<reason>-<timestamp>.log so freezes and stream errors can be diagnosed.
+
+const LOG_DIR       = path.join(__dirname, 'logs');
+const LOG_KEEP      = 30; // saved logs to keep (newest first)
+fs.mkdirSync(LOG_DIR, { recursive: true });
+
+function keepMpvLog(cam, reason) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const dest  = path.join(LOG_DIR, `${cam.id}-${reason}-${stamp}.log`);
+  try {
+    fs.renameSync(path.join(LOG_DIR, `${cam.id}.log`), dest);
+    console.log(`[mpv] ${cam.name} log saved: logs/${path.basename(dest)}`);
+  } catch (err) {
+    console.error(`[mpv] ${cam.name} log save failed:`, err.message);
+  }
+  const saved = fs.readdirSync(LOG_DIR)
+    .filter(f => /-\d{4}-\d{2}-\d{2}T.*\.log$/.test(f))
+    .map(f => ({ f, t: fs.statSync(path.join(LOG_DIR, f)).mtimeMs }))
+    .sort((a, b) => b.t - a.t);
+  saved.slice(LOG_KEEP).forEach(({ f }) => fs.rmSync(path.join(LOG_DIR, f), { force: true }));
+}
 
 // ── mpv management ─────────────────────────────────────────────────────────────
 
@@ -155,16 +181,19 @@ function spawnGridCell(cam, i) {
   const { x, y } = GRID_POSITIONS[i];
   const proc = spawnMpv([
     `--geometry=${CELL_W}x${CELL_H}+${x}+${y}`,
+    `--log-file=${path.join(LOG_DIR, `${cam.id}.log`)}`,
     `${GO2RTC_RTSP}/${cam.streamLo}`,
   ]);
   const driftTimer = setTimeout(() => {
     if (state.mode === 'grid' && proc.exitCode === null) {
       console.log(`[drift] ${cam.name} periodic reset`);
+      proc.exitReason = 'drift';
       proc.kill('SIGTERM');
     }
   }, DRIFT_RESET_INTERVAL_MS + i * 15 * 60 * 1000);
   proc.on('exit', code => {
     clearTimeout(driftTimer);
+    if (!['drift', 'stopped'].includes(proc.exitReason)) keepMpvLog(cam, proc.exitReason || `exit${code}`);
     if (state.mode === 'grid') {
       console.log(`[mpv] ${cam.name} exited (${code}), respawning in 2s`);
       setTimeout(() => {
@@ -211,7 +240,7 @@ function stopFullscreen() {
 
 function killGrid() {
   stopWatchdog();
-  gridProcs.forEach(p => p && p.kill('SIGTERM'));
+  gridProcs.forEach(p => { if (p) { p.exitReason = 'stopped'; p.kill('SIGTERM'); } });
   gridProcs = [];
 }
 

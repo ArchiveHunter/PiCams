@@ -3,3 +3,4 @@ node_modules/
 go2rtc.yaml
 cameras.json
 npm-debug.log*
+logs/
