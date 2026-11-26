@@ -187,11 +187,11 @@ function spawnGridCell(cam, i) {
       proc.kill('SIGTERM');
     }
   }, DRIFT_RESET_INTERVAL_MS + i * 15 * 60 * 1000);
-  proc.on('exit', code => {
+  proc.on('exit', (code, signal) => {
     clearTimeout(driftTimer);
-    if (!['drift', 'stopped'].includes(proc.exitReason)) keepMpvLog(cam, proc.exitReason || `exit${code}`);
+    if (!['drift', 'stopped'].includes(proc.exitReason)) keepMpvLog(cam, proc.exitReason || `exit${code ?? signal}`);
     if (state.mode === 'grid') {
-      console.log(`[mpv] ${cam.name} exited (${code}), respawning in 2s`);
+      console.log(`[mpv] ${cam.name} exited (${code ?? signal}), respawning in 2s`);
       setTimeout(() => {
         if (state.mode === 'grid') gridProcs[i] = spawnGridCell(cam, i);
       }, 2000);
